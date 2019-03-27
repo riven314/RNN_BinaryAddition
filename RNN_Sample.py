@@ -73,19 +73,35 @@ sess.run(tf.global_variables_initializer())
 
 #Number of data for training and testing
 #Please remember the total number is 5000
-num4train = 4000
-num4test = 1000
+# num4train = 4, num4test = 1
+num4train = 4
+num4test = 1
+n_epoch = 2
 
 # train
 for i in range(10):
     for j in range(num4train):
         if j % 10 == 0:
             print("Epoch: %d Example: %d is running..." % (i,j))
-        a = np.array([a_list[j]], dtype=np.uint8)
-        b = np.array([b_list[j]], dtype=np.uint8)
-        c = np.array([c_list[j]], dtype=np.uint8)
+        #a = np.array([a_list[j]], dtype=np.uint8)
+        # the above is bug
+        a = np.array(a_list[j], dtype=np.uint8)
+        print('a')
+        print(a)
+        #b = np.array([b_list[j]], dtype=np.uint8)
+        # the above is bug
+        b = np.array(b_list[j], dtype=np.uint8)
+        print('b')
+        print(b)
+        #c = np.array([c_list[j]], dtype=np.uint8)
+        # the above is bug
+        c = np.array(c_list[j], dtype=np.uint8)
         ab = np.c_[a,b]
+        print('ab')
+        print(ab)
         x = np.array(ab).reshape([1, binary_dim, 2])
+        print('x')
+        print(x)
         y = np.array(c).reshape([1, binary_dim])
         sess.run(train_step, {X: x, Y: y})
 

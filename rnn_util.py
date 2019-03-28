@@ -15,6 +15,8 @@ Guiding Question:
 7. flexible weight?
 8. using different activation function in hidden unit?
 9. diminishing learning rate
+10. add regularization
+11. input data upside down
 
 Issue:
 1. how to keep track fo the weight? 
@@ -25,6 +27,7 @@ Issue:
 Further:
 1. use tensorboard to keep track of key metrics
 2. Plot loss function
+3. add He initialisation
 
 [27/03/2019] 
 TO DO LIST

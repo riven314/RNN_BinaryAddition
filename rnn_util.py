@@ -17,19 +17,19 @@ Guiding Question:
 9. diminishing learning rate
 10. add regularization
 11. input data upside down
+12. ** test with small data to see if it will get overfitting without regularization
 
 Issue:
-1. how to keep track fo the weight? 
-2. accuracy allows partial credit to wrong ans
-3. updated for each timestep or updated for each training example?
-4. x = np.array(ab).reshape([1, binary_dim, 2]) << this is problematic 
+1. how to keep track fo the weight for BasicRNNCell
+2. x = np.array(ab).reshape([1, binary_dim, 2]) << this is problematic 
+3. take the data from top to bottom or from bottom to top?
+4. at last batch may not fit the specified batch size, how to do?
 
 Further:
 1. use tensorboard to keep track of key metrics
 2. Plot loss function
-3. add He initialisation
 
-[27/03/2019] 
+[27/03/2019]
 TO DO LIST
 1. compute function for compute loss function
 2. function for test case evaluation
@@ -47,6 +47,11 @@ ACTUAL:
 5. optimiser function
 6. RNN propagation
 7. training loop
+
+[28/03/2019]
+ACTUAL:
+1. shuffle function
+2. transform np array function
 
 Point to Note:
 1. tf version = 1.5.0
@@ -69,6 +74,8 @@ Reference
     https://www.tensorflow.org/tutorials/sequences/recurrent
 - difference between dynamic_rnn and rnn 
     https://www.zhihu.com/question/52200883
+- different weight init method with tensorflow implementation and math proof
+    https://medium.com/@prateekvishnu/xavier-and-he-normal-he-et-al-initialization-8e3d7a087528
 
 """
 import numpy as np
@@ -77,7 +84,7 @@ import tensorflow as tf
 # a, b, c * 5000
 FILENAME = 'data.txt'
 
-def txt_2_data(filename):
+def txt_2_dictaa(filename):
     """
     retrieve data from A, B, C
     A + B = c 
@@ -123,6 +130,79 @@ def str_2_list(data_list):
         ret_list.append(tmp_ret_list)
     return ret_list
 
+def dict_2_nparr(data_dict):
+    """
+    convert data_dict from txt_2_dict to input data and label data x, y. 
+    in the middle, a array and b array are concatenated and go through proper transform for desired shape
+    
+    input:
+        data_dict -- dictionary storing a_list, b_list, c_list, fr
+        
+    output:
+        x -- np.array input data of shape (m, time_steps, input_dim)
+        y -- np.array label data of shape (m, time_steps)
+    """
+    # load in a_list, b_list, c_list
+    # use np.copy() to avoid change in place for data_dict
+    a_arr = np.array(data_dict['a'], dtype = np.uint8).copy()
+    b_arr = np.array(data_dict['b'], dtype = np.uint8).copy()
+    y = np.array(data_dict['c'], dtype = np.uint8).copy()
+    # parameters for dimension    
+    m, time_steps = y.shape
+    input_dim = 2
+    # Transform data into np array x, y
+    ab_arr = np.c_[a_arr, b_arr]
+    x = np.array(ab_arr).reshape([m, input_dim, time_steps])
+    # convert from shape (x, y, z) to shape (x, z, y)
+    x = np.transpose(x, (0, 2, 1))
+    print('x shape = {}'.format(x.shape))
+    print('y shape = {}'.format(y.shape))
+    return x, y 
+
+def partition_data(x, y, train_idx = 0, num4train = 4000, test_idx = 4000, num4test = 1000):
+    """
+    partition data into trainnig set and test set
+    training set - x[train_idx:train_idx+num4train], y[test_idx:test_idx+num4test]
+    test set - x[test_idx:test_idx+num4test], y[test_idx:test_idx+num4test]
+    
+    input:
+        x -- np.array input data of shape (m, time_steps, input_dim)
+        y -- np.array label data of shape (m, time_steps)
+        trian_idx -- idx at dim(m) timewhere you start pick the training data
+        num4train -- number of trainig input data
+        test_idx -- idx at dim(m) timewhere you start pick the test data
+        num4test -- number of test input data
+        
+    output:
+        train_x -- np.array of shape (batch_size, time_steps, input_dim)
+        train_y -- np.array of shape (batch_size, time_steps)
+        test_x -- np.array of shape (batch_size, time_steps, input_dim)
+        test_y -- np.array of shape (batch_size, time_steps)
+    """    
+    train_x = x[train_idx: train_idx + num4train, :, :]
+    train_y = y[train_idx: train_idx + num4train, :]
+    test_x = x[test_idx: test_idx + num4test, :, :]
+    test_y = y[test_idx: test_idx + num4test, :]
+    return train_x, train_y, test_x, test_y
+
+def shuffle(x, y, rand_seed = 1):
+    """
+    shuffle input data and label data in place (i.e rearrange the order)
+    
+    input:
+        x -- before shuffle np.array input data of shape (m, time_steps, input_dim)
+        y -- before shuffle np.array label data of shape (m, time_steps)
+    
+    output:
+        x -- after shuffle np.array input data of shape (m, time_steps, input_dim)
+        y -- after shuffle before shuffle np.array label data of shape (m, time_steps)
+    """
+    m, _, _ = x.shape
+    shuff_idx = np.random.permutation(m)
+    x = x[shuff_idx, :, :]
+    y = y[shuff_idx, :]
+    return x, y
+
 def init_parameters(hidden_dim, output_dim = 1, init_method = 'naive', rand_seed = 1):
     """
     initialised weights and bias, then store in dictionary i.e parameters.
@@ -134,7 +214,8 @@ def init_parameters(hidden_dim, output_dim = 1, init_method = 'naive', rand_seed
         output_dim -- dimension of the output
         init_method -- method for initialisation. 
                         naive = original method
-                        xavier = np.random.randn() * np.sqrt(2./layers_dim[l-1])
+                        xavier = np.random.randn() * np.sqrt(1./layers_dim[l-1]) ~~ generally used for tanh
+                        he = np.random.randn() * np.sqrt(2./layers_dim[l-1]) ~~ generally used for relu
                         
     output:
         parameters -- dictionary storing weight matrix and bias vector for all layers
@@ -151,6 +232,13 @@ def init_parameters(hidden_dim, output_dim = 1, init_method = 'naive', rand_seed
         b = tf.get_variable('b', 
                             [1, output_dim], 
                             initializer = tf.contrib.layers.xavier_initializer(seed = rand_seed))
+    elif init_method == 'he':
+        W = tf.get_variable('W',
+                            [hidden_dim, output_dim],
+                            initializer = tf.contrib.layers.variance_scaling_initializer(dtype=tf.float32))
+        b = tf.get_variable('b',
+                            [1, output_dim],
+                            initializer = tf.contrib.layers.variance_scaling_initializer(dtype=tf.float32))
     else:
         print('Invalid init_method input!')
         return None
@@ -328,7 +416,7 @@ cost = compute_cost(h, Y)
 train_step = backpropagate_optimise(cost)
 
 # pull data
-data_dict = txt_2_data(FILENAME)
+data_dict = txt_2_dict(FILENAME)
 a_list = data_dict['a']
 b_list = data_dict['b']
 c_list = data_dict['c']
@@ -634,7 +722,7 @@ def get_test_accuracy(remain_result):
 
 
 ## Testing
-data_dict = txt_2_data(FILENAME)
+data_dict = txt_2_dict(FILENAME)
 train_step, cache = BasicRNN_Setup(4, 0.001)
 train_step, cache = train_model(data_dict, train_step, cache, n_epoch = 3, num4train = 10)
 remain_result = pass_test_data(data_dict, cache, 500, 10)

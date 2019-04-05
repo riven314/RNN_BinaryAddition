@@ -53,6 +53,19 @@ ACTUAL:
 1. shuffle function
 2. transform np array function
 
+[31/03/2019]
+1. Working on prediction and accuracy function
+
+[06/04/2019]
+1. Complete get_minibatches() function
+2. Complete refactor the training loop
+3. Complete plotting function
+FOLLOW UP
+1. Set up dropout
+2. Set up multi layer
+3. upside down read in data
+4. modularisation
+
 Point to Note:
 1. tf version = 1.5.0
 
@@ -80,11 +93,12 @@ Reference
 """
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 # a, b, c * 5000
 FILENAME = 'data.txt'
 
-def txt_2_dictaa(filename):
+def txt_2_dict(filename):
     """
     retrieve data from A, B, C
     A + B = c 
@@ -183,6 +197,10 @@ def partition_data(x, y, train_idx = 0, num4train = 4000, test_idx = 4000, num4t
     train_y = y[train_idx: train_idx + num4train, :]
     test_x = x[test_idx: test_idx + num4test, :, :]
     test_y = y[test_idx: test_idx + num4test, :]
+    print('train_x shape = {}'.format(train_x.shape))
+    print('train_y shape = {}'.format(train_y.shape))
+    print('test_x shape = {}'.format(test_x.shape))
+    print('test_y shape = {}'.format(test_y.shape))
     return train_x, train_y, test_x, test_y
 
 def shuffle(x, y, rand_seed = 1):
@@ -202,6 +220,32 @@ def shuffle(x, y, rand_seed = 1):
     x = x[shuff_idx, :, :]
     y = y[shuff_idx, :]
     return x, y
+
+def get_minibatches(x, y, it, bs_size):
+    """
+    get a minibatch of size bs_size from the data set x and y. Take care of end case where minibatch may have size less than bs_size
+    
+    input:
+        x -- after shuffle np.array input data of shape (m, time_steps, input_dim)
+        y -- after shuffle np.array label data of shape (m, time_steps)
+        it -- number of epoch (start from 0). if it is the last, minibatch size is <= bs_size
+        bs_size -- minibatch size. it is the upper bound of the minibatch
+        
+        
+    output:
+        mb_x -- minibatch for x of shape (<=bs_size, time_steps, input_dim)
+        mb_y -- minibatch for y of shape (<=bs_Size, time_steps)
+    """
+    m, _, _ = x.shape
+    bs_num = m // bs_size
+    if it is not bs_num:
+        mb_x = x[it * bs_size: (it+1) * bs_size, :, :]
+        mb_y = y[it * bs_size: (it+1) * bs_size, :]
+    else:
+        mb_x = x[it * bs_size:, :, :]
+        mb_y = y[it * bs_size:, :]
+    return mb_x, mb_y
+
 
 def init_parameters(hidden_dim, output_dim = 1, init_method = 'naive', rand_seed = 1):
     """
@@ -372,7 +416,7 @@ def backpropagate_optimise(cost, lr = 0.01, optimiser = 'adam'):
         cost -- cost function from compute_cost()
         optimiser -- string indicating optimiser e.g adam/ rmsprop/ nesterov_momentum/ momentum
     
-    method
+    output:
         train_step -- optimisation steps
     """
     # DEFINE OPTIMISER AND LEARNING RATE
@@ -386,344 +430,129 @@ def backpropagate_optimise(cost, lr = 0.01, optimiser = 'adam'):
         train_step = tf.train.MomentumOptimizer(learning_rate = lr, use_nesterov = False).minimise(cost)
     return train_step
 
-def predict(X, outputs, parameters):
+def get_prediction(probs):
     """
-    find out accuracy rate for test data X 
-    feed X into propagation through timestep, then it goes to forward feed to get final prediction
+    convert np array of probability from network output to a prediction np array
     
-    input
-    """    
-    x = tf.placeholder('float', X.get_shape().as_list())
-    z = forward_pass(x, outputs, parameters)
+    input:
+        probs -- np.array of shape (batch_size, binary_dim, 1), output from network after sigmoid activation
     
-    sess = tf.Session()
-    prediction = sess.run(z, feed_dict = {x: X})
-    sess.close()
-    return prediction
+    output:
+        preds -- np.array of prediction
+    """
+    bs_size, binary_dim, _ = probs.shape
+    tmp = np.array(probs).reshape([bs_size, binary_dim])    
+    preds = np.array([np.where(p>=0.5, 1, 0) for p in tmp])
+    return preds
 
+def get_accuracy(y, preds):
+    """
+    get accuracy from actual labels (y) and prediction from model (preds)
+    
+    input:
+        y -- np.array of shape (batch_size, binary_dim), represent batch of actual labels
+        preds -- np.array of shape (batch_size, binary_dim), represent prediction by model
+        
+    output:
+        acc -- float of accuracy rate on batch y
+    """
+    accuracy = 0
+    for i in range(len(y)):
+        len_ = len(y[i])
+        tmp_num = 0
+        for j in range(len_):
+            if y[i][j] == preds[i][j]:
+                tmp_num += 1
+        #print('tmp_num = {}'.format(tmp_num))
+        accuracy += tmp_num / len_
+        #print('accuracy = {}'.format(accuracy))
+    accuracy /= len(y)
+    return accuracy 
 
+def get_metrics_plot(train_cost_list, test_cost_list, train_acc_list, test_acc_list):
+    """
+    plot a curve for loss evolution and a plot for accuracy evolution (for both training set and test set)
+    
+    input:
+        train_cost_list -- 
+        test_cost_list -- 
+        train_acc_list --
+        test_acc_list --
+        
+    output:
+        None 
+    """
+    f, (ax1, ax2) = plt.subplots(nrows = 2, ncols = 1)
+    # plotting loss curve
+    cost_train, = ax1.plot(train_cost_list)
+    cost_test, = ax1.plot(test_cost_list)
+    ax1.legend((cost_train, cost_test), ('cost for train', 'cost for test'))
+    ax1.set_title('Loss Evolution')
+    # plotting accuracy curve
+    acc_train, = ax2.plot(train_acc_list)
+    acc_test, = ax2.plot(test_acc_list)
+    ax2.legend((acc_train, acc_test), ('accuracy for train', 'accuracy for test'))
+    ax2.set_title('Accuracy Evolution')
+    plt.tight_layout()
+    return None
+    
+        
 #####################################################
-#####################################################    
-### TESTING
-batch_size = 16
+#####################################################  
+binary_dim = 8    
+batch_size = 64
+n_epoch = 300
+n_mb = 20
+num4train = batch_size * n_mb
+num4test = 100
+
+### TRAINING SESSION
 tf.reset_default_graph()
-X, Y = init_placeholder()
+train_X, train_Y = init_placeholder()
 parameters = init_parameters(hidden_dim = 4)
 rnn_cell = create_BasicRNN(hidden_dim = 4)
-outputs, state = forward_timestep(X, rnn_cell, batch_size = batch_size)
-h = forward_output(X, outputs, parameters)
-cost = compute_cost(h, Y)
-train_step = backpropagate_optimise(cost)
+outputs, state = forward_timestep(train_X, rnn_cell, batch_size = batch_size)
+train_h = forward_output(train_X, outputs, parameters)
+train_cost = compute_cost(train_h, train_Y)
+train_step = backpropagate_optimise(train_cost)
+
+### TESTING SESSION
+test_X, test_Y = init_placeholder()
+test_output, _ = forward_timestep(test_X, rnn_cell, batch_size = num4test)
+test_h = forward_output(test_X, test_output, parameters)
+test_cost = compute_cost(test_h, test_Y)
 
 # pull data
 data_dict = txt_2_dict(FILENAME)
-a_list = data_dict['a']
-b_list = data_dict['b']
-c_list = data_dict['c']
+x, y = dict_2_nparr(data_dict)
+train_x, train_y, test_x, test_y = partition_data(x, y, 
+                                                  train_idx = 0, num4train = num4train, 
+                                                  test_idx = 4000, num4test = num4test)
 
 # start training
-binary_dim= 8
-n_epoch = 2
-num4train = 3
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
-#####################################################
-#####################################################  
-# GET TEST DATA AND DEFINE PROPOGATION GRAPH FOR GETTING LOSS
-a_test = np.array(a_list[4000:4100], dtype=np.uint8)
-b_test = np.array(b_list[4000:4100], dtype=np.uint8)
-c_test = np.array(c_list[4000:4100], dtype=np.uint8)
-ab_test = np.c_[a_test,b_test]
-# x = (batch_size, time_steps, input_dim)
-x_test = np.array(ab_test).reshape([100, 2, binary_dim])
-x_test = np.transpose(x_test, (0, 2, 1))
-# y = (batch_size, time_steps)
-y_test = np.array(c_test).reshape([100, binary_dim])
-X_test, Y_test = init_placeholder()
-test_output, _ = forward_timestep(X_test, rnn_cell, batch_size = 100)
-h_test = forward_output(X_test, test_output, parameters)
-test_cost = compute_cost(h_test, Y_test)
-
-cost_list = []
+train_cost_list, test_cost_list = [], []
+train_acc_list, test_acc_list = [], []
 for i in range(n_epoch):
-    for j in range(num4train):
+    train_x, train_y = shuffle(train_x, train_y, rand_seed = i)
+    for j in range(n_mb):
+        mb_x, mb_y = get_minibatches(train_x, train_y, j, batch_size)
         if j % 10 == 0:
             print('Epoch: %d Example: %d is running...' % (i,j))
-        a = np.array(a_list[:batch_size], dtype=np.uint8)
-        b = np.array(b_list[:batch_size], dtype=np.uint8)
-        c = np.array(c_list[:batch_size], dtype=np.uint8)
-        ab = np.c_[a,b]
-
-        # x = (batch_size, time_steps, input_dim)
-        x = np.array(ab).reshape([batch_size, 2, binary_dim])
-        x = np.transpose(x, (0, 2, 1))
-        
-        # y = (batch_size, time_steps)
-        y = np.array(c).reshape([batch_size, binary_dim])
-        _, tmp_cost = sess.run([train_step, cost] , feed_dict = {X: x, Y: y})
-        cost_list.append(tmp_cost)
-        print('train_cost = {}'.format(tmp_cost))
-        W = parameters['W']
-        tmp_W = sess.run(W)
-        print(tmp_W)
-        
-        # get cost from test set
-        tmp_cost1, tmp_cost2 = sess.run([test_cost, test_cost] , feed_dict = {X_test: x_test, Y_test: y_test})
-        print('test_cost1 = {}'.format(tmp_cost1))
-        print('test_cost2 = {}'.format(tmp_cost2))
-
-
-
-def BasicRNN_Setup(hidden_dim, lr, optimiser = 'adam'):
-    """
-    set up the weight, placeholder and model architecture for implementating basic RNN
-    
-    input:
-        hidden_dim -- dimension of hidden unit
-        lr -- learning rate
-        optimiser -- str indicating type of optimiser. default to be adam (adam/ rmsprop/ nesterov_momentum/ momentum)
-    output:
-        train_step -- ready for training
-        cache -- dictionary of tensor, including
-            weights -- W, b, h, h_
-            variables -- X, Y, Y_
-            model -- model object
-            loss 
-    """
-    # BASIC PARAMETERS
-    time_steps = 8        # time steps which is the same as the length of the bit-string
-    input_dim = 2         # number of units in the input layer
-    hidden_dim = 4       # number of units in the hidden layer
-    output_dim = 1        # number of units in the output layer
-    binary_dim = 8
-    largest_number = pow(2, binary_dim)
-    
-    # DEFINE PLACEHOLDER X AND Y
-    tf.reset_default_graph()
-    X = tf.placeholder(tf.float32, [None, time_steps, input_dim], name='x')
-    Y = tf.placeholder(tf.float32, [None, time_steps], name='y')
-    
-    # DEFINE MODEL OBJECT
-    cell = tf.contrib.rnn.BasicRNNCell(num_units=hidden_dim, activation=tf.nn.sigmoid)
-    
-    # DEFINE WEIGHTS
-    # values is a tensor of shape [batch_size, time_steps, hidden_dim]
-    # last_state is a tensor of shape [batch_size, hidden_dim]
-    # tf.nn.dynamic_rnn propagate RNNCell by time-step
-    values, last_state = tf.nn.dynamic_rnn(cell, X, dtype=tf.float32)
-    values = tf.reshape(values,[time_steps, hidden_dim])
-    # put the values from the RNN through fully-connected layer
-    W = tf.Variable(tf.random_uniform([hidden_dim, output_dim], minval=-1.0,maxval=1.0), name='W')
-    b = tf.Variable(tf.zeros([1, output_dim]), name='b')
-    h = tf.nn.sigmoid(tf.matmul(values,W) + b, name='h')
-
-    # DEFINE MODEL    
-    # minimize loss, using ADAM as weight update rule
-    h_ = tf.reshape(h, [time_steps])
-    Y_ = tf.reshape(Y, [time_steps])
-    
-    # DEFINE LOSS
-    loss = tf.reduce_sum(-Y_ * tf.log(h_) - (1-Y_) * tf.log(1-h_), name='loss')
-    
-    # DEFINE OPTIMISER AND LEARNING RATE
-    if optimiser == 'adam':
-        train_step = tf.train.AdamOptimizer(lr).minimize(loss)
-    elif optimiser == 'rmsprop':
-        train_step = tf.train.RMSPropOptimizer(lr).minimize(loss)
-    elif optimiser == 'nesterov_momentum':
-        train_step = tf.train.MomentumOptimizer(learning_rate = lr, use_nesterov = True).minimise(loss)
-    elif optimiser == 'momentum':
-        train_step = tf.train.MomentumOptimizer(learning_rate = lr, use_nesterov = False).minimise(loss)
-    
-    # STORE OUTPUT
-    cache = dict()
-    cache['W'] = W
-    cache['b'] = b
-    cache['h'] = h
-    cache['h_'] = h_
-    cache['X'] = X
-    cache['Y'] = Y
-    cache['Y_'] = Y_
-    cache['cell'] = cell
-    cache['loss'] = loss
-    
-    return train_step, cache
-    
-
-def train_model(data_dict, train_step, cache, n_epoch, num4train):
-    """
-    feed in data and train model
-    cost function is binary cross entropy
-    
-    input:
-        data_dict -- dictionary of binary data retrieved from data.txt
-        train_step -- the model object
-        cache -- for storing placeholder, weight and loss
-        n_epoch -- number of epoch
-        num4train -- number of training examples per epoch (count from beginning by order)
-    
-    output:
-        train_step
-    """
-    # preset
-    binary_dim = 8
-    W = cache['W']
-    b = cache['b']
-    h = cache['h']
-    h_= cache['h_']
-    X = cache['X']
-    Y = cache['Y']
-    Y_ = cache['Y_']
-    cell = cache['cell']
-    loss = cache['loss']
-    
-    # load in a, b, c list
-    a_list = data_dict['a']
-    b_list = data_dict['b']
-    c_list = data_dict['c']
-    loss_list = []
-    
-    # start training
-    sess = tf.Session()
-    sess.run(tf.global_variables_initializer())
-    
-    for i in range(n_epoch):
-        for j in range(num4train):
-            if j % 10 == 0:
-                print('Epoch: %d Example: %d is running...' % (i,j))
-            a = np.array([a_list[j]], dtype=np.uint8)
-            b = np.array([b_list[j]], dtype=np.uint8)
-            c = np.array([c_list[j]], dtype=np.uint8)
-            ab = np.c_[a,b]
-            x = np.array(ab).reshape([1, binary_dim, 2])
-            y = np.array(c).reshape([1, binary_dim])
-            _, tmp_loss = sess.run([train_step, loss] , feed_dict = {X: x, Y: y})
-            loss_list.append(tmp_loss)
-            print('loss = {}'.format(tmp_loss))
-            tmp_W = sess.run(W)
-            print(tmp_W)
-            _, tmp_loss = sess.run([loss] , feed_dict = {X: x, Y: y})
-            compute_cost
-        
-    # overwrite cache
-    cache['W'] = W
-    cache['b'] = b
-    cache['h'] = h
-    cache['h_'] = h_
-    cache['X'] = X
-    cache['Y'] = Y
-    cache['Y_'] = Y_
-    cache['cell'] = cell
-    cache['loss'] = loss
-    
-    sess.close()
-    return loss_list, train_step, cache
-
-
-
-
-def pass_test_data(data_dict, cache, num4train, num4test, is_print = False):
-    """
-    Run test set on model. Open a session for running test set data
-    Print out prediction, prob, loss for all test case
-    Test set being [num4train+1: num4train + num4test]
-    Define loss in one example = abs(y[i] - probs[i]) for i in [0:7]
-    
-    input:
-        data_dict -- dictionary of binary data a_list, b_list
-        cache -- for storing weight, placeholder, loss 
-        sess -- tf.Session()
-        num4train -- training set number 
-        num4test -- test set number
-    
-    output:
-        result -- list of [prediction, y, probs]
-    """
-    binary_dim = 8 
-    # from data dict
-    a_list = data_dict['a']
-    b_list = data_dict['b']
-    c_list = data_dict['c']
-    
-    # from cache
-    loss = cache['loss']
-    X = cache['X']
-    Y = cache['Y']
-    h = cache['h']
-    remain_result = []
-    
-     # start training
-    sess = tf.Session()
-    sess.run(tf.global_variables_initializer())
-    
-    for i in range(num4train + 1, num4train + num4test):
-        a = a_list[i]
-        b = b_list[i]
-        c = c_list[i]
-        ab = np.c_[a,b]
-        x = np.array(ab).reshape([1, binary_dim, 2])
-        y = np.array(c).reshape([1, binary_dim])
-    
-        # get predicted value
-        [_probs, _loss] = sess.run([h, loss], feed_dict = {X: x, Y: y})
-        probs = np.array(_probs).reshape([8])
-        #print('probs = {}'.format(probs))
-        prediction = np.array([1 if p >= 0.5 else 0 for p in probs]).reshape([8])
-        # Save the result
-        remain_result.append([prediction, y[0], probs])
-    
-        # calculate error
-        error = np.sum(np.absolute(y - probs))
-        
-        if is_print:
-            #print the prediction, the right y and the error.
-            print('---------------')
-            print('data index: {}'.format(i))
-            print('probs:')
-            print(probs)
-            print('prediction:')
-            print(prediction)
-            print('y:')
-            print(y[0])
-            print('error')
-            print(error)
-            print('---------------')
-            print()
-    
-    sess.close()
-    return remain_result
-
-def get_test_accuracy(remain_result):
-    """
-    check accuracy for test result. partial credit is given for wrong prediction
-    * accuracy in one examples = sum([prediction[i] == y[i] for i in [0:7]) / 8
-    
-    input:
-        remain_result -- np array of remaining result
-    
-    output:
-        accuracy -- float of accuracy
-    """
-    accuracy = 0
-    for i in range(len(remain_result)):
-        len_ = len(remain_result[i][0])
-        tmp_num = 0
-        for j in range(len_):
-            if remain_result[i][0][j] == remain_result[i][1][j]:
-                tmp_num += 1
-        accuracy += tmp_num / len_
-    
-    accuracy /= len(remain_result)
-    
-    print("Accuracy: %.4f"%(accuracy))
-    return accuracy
-
-
-
-## Testing
-data_dict = txt_2_dict(FILENAME)
-train_step, cache = BasicRNN_Setup(4, 0.001)
-train_step, cache = train_model(data_dict, train_step, cache, n_epoch = 3, num4train = 10)
-remain_result = pass_test_data(data_dict, cache, 500, 10)
-acc = get_test_accuracy(remain_result)
+        # training set
+        _, train_bs_probs, train_bs_cost = sess.run([train_step, train_h, train_cost], 
+                                                    feed_dict = {train_X: mb_x, train_Y: mb_y})
+        train_cost_list.append(train_bs_cost)
+        train_preds = get_prediction(train_bs_probs)
+        train_acc = get_accuracy(mb_y, train_preds)
+        train_acc_list.append(train_acc)
+        print('train_cost = {} | train_acc = {}'.format(train_bs_cost, train_acc))
+        # test set
+        test_all_probs, test_all_cost = sess.run([test_h, test_cost] , feed_dict = {test_X: test_x, test_Y: test_y})
+        test_cost_list.append(test_all_cost)
+        test_all_preds = get_prediction(test_all_probs)
+        test_acc = get_accuracy(test_y, test_all_preds)
+        test_acc_list.append(test_acc)
+        print('test_cost = {} | test_acc = {}'.format(test_all_cost, test_acc))

@@ -56,7 +56,7 @@ ACTUAL:
 [31/03/2019]
 1. Working on prediction and accuracy function
 
-[06/04/2019]
+[05/04/2019]
 1. Complete get_minibatches() function
 2. Complete refactor the training loop
 3. Complete plotting function
@@ -65,6 +65,10 @@ FOLLOW UP
 2. Set up multi layer
 3. upside down read in data
 4. modularisation
+
+[06/04/2019]
+1. Modularized the functions (data_util, model_util, metrics_util)
+
 
 Point to Note:
 1. tf version = 1.5.0

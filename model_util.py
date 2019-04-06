@@ -40,16 +40,12 @@ def init_parameters(hidden_dim, output_dim = 1, init_method = 'naive', rand_seed
         W = tf.get_variable('W', 
                             [hidden_dim, output_dim], 
                             initializer = tf.contrib.layers.xavier_initializer(seed = rand_seed))
-        b = tf.get_variable('b', 
-                            [1, output_dim], 
-                            initializer = tf.contrib.layers.xavier_initializer(seed = rand_seed))
+        b = tf.Variable(tf.zeros([1, output_dim]), name='b')
     elif init_method == 'he':
         W = tf.get_variable('W',
                             [hidden_dim, output_dim],
                             initializer = tf.contrib.layers.variance_scaling_initializer(dtype=tf.float32))
-        b = tf.get_variable('b',
-                            [1, output_dim],
-                            initializer = tf.contrib.layers.variance_scaling_initializer(dtype=tf.float32))
+        b = tf.Variable(tf.zeros([1, output_dim]), name='b')
     else:
         print('Invalid init_method input!')
         return None
@@ -76,27 +72,53 @@ def init_placeholder(input_dim = 2, time_steps = 8):
 
 def create_BasicRNN(hidden_dim, activation = 'sigmoid'):
     """
-    create BasicRNNCell object with specified activation function
+    create BasicRNNCell object with specified activation function. 
+    If hidden_dim has length 1, single layer RNN is created
+    If hidden_dim is a list with more than 1 values, mulilayers RNN is creates
+    use the same specified activation functions across the defined hidden layers
     
     input:
-        hidden_dim -- dimension of the last hidden layer
+        hidden_dim -- list, dimension of the last hidden layer
         activation -- activation function used in the hidden layers i.e sigmoid/ relu/ elu/ leaky_relu/ tanh
         
     output:
         rnn_cell -- RNN cell object
     """
-    # create basic RNN object with specified activation for hidden layer
+    n_layers = len(hidden_dim)
+    
+    # decide activation function
     if activation == 'sigmoid':
-        rnn_cell = tf.contrib.rnn.BasicRNNCell(num_units=hidden_dim, activation= tf.nn.sigmoid)
+        activation_f = tf.nn.sigmoid
     elif activation == 'relu':
-        rnn_cell = tf.contrib.rnn.BasicRNNCell(num_units=hidden_dim, activation= tf.nn.relu)
+        activation_f = tf.nn.relu
     elif activation == 'leaky_relu':
-        rnn_cell = tf.contrib.rnn.BasicRNNCell(num_units=hidden_dim, activation= tf.nn.leaky_relu)
+        activation_f = tf.nn.leaky_relu
     elif activation == 'elu':
-        rnn_cell = tf.contrib.rnn.BasicRNNCell(num_units=hidden_dim, activation= tf.nn.elu)
+        activation_f = tf.nn.elu
     elif activation == 'tanh':
-        rnn_cell = tf.contrib.rnn.BasicRNNCell(num_units=hidden_dim, activation= tf.nn.tanh)
-    return rnn_cell    
+        activation_f = tf.nn.tanh
+    
+    # check if hidden_dim is a list
+    if not isinstance(hidden_dim, list):
+        print('Please input hidden_dim as a list')
+        return None
+    
+    # create basic RNN object with 1 hidden layer only
+    if n_layers == 1:
+        #print('n_layers = 1')
+        rnn_cell = tf.contrib.rnn.BasicRNNCell(num_units = hidden_dim[0], activation= activation_f)
+        return rnn_cell
+    
+    # stack layers if there are multi-layers
+    elif n_layers > 1:
+        #print('n_layers > 1')
+        cell_list = [tf.contrib.rnn.BasicRNNCell(n_hidden, activation = activation_f) for n_hidden in hidden_dim]
+        rnn_cells = tf.nn.rnn_cell.MultiRNNCell(cells = cell_list)
+        return rnn_cells
+    
+    else:
+        #print('else')
+        return None
     
 
 def forward_timestep(X, rnn_cell, time_steps = 8, batch_size = 1):
@@ -122,9 +144,9 @@ def forward_timestep(X, rnn_cell, time_steps = 8, batch_size = 1):
     # output is a tensor of shape [batch_size, time_steps, hidden_dim]
     # state is a tensor of shape [batch_size, hidden_dim]
     outputs, state = tf.nn.dynamic_rnn(cell = rnn_cell, 
-                                       inputs = X, 
-                                       dtype = tf.float32,
-                                       initial_state = initial_state)
+                                                       inputs = X, 
+                                                       dtype = tf.float32,
+                                                       initial_state = initial_state)
     return outputs, state
 
 def forward_output(X, outputs, parameters):

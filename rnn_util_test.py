@@ -6,18 +6,12 @@ Created on Tue Mar 26 16:50:03 2019
 @author: Alex Lau
 
 Guiding Question:
-1. how to initialise the weight? (Xavier initialiser)
 2. using what learning rate and optimiser?
 3. early stop?
 4. grid search for hyper parameters?
 5. use of LSTM/ GRU?
-6. use minibatch? (shuffle)
-7. flexible weight?
-8. using different activation function in hidden unit?
 9. diminishing learning rate
 10. add regularization
-11. input data upside down
-12. ** test with small data to see if it will get overfitting without regularization
 
 Issue:
 1. how to keep track fo the weight for BasicRNNCell
@@ -68,7 +62,19 @@ FOLLOW UP
 
 [06/04/2019]
 1. Modularized the functions (data_util, model_util, metrics_util)
+2. flip data x, y upside down
+3. trying different parameters and hyper-parameter
+4. multi-layer rnn
+FOLLOW UP
+1. Try different partitioning, specially on test set (robustness test)
+2. dropout for RNN
+3. batch-norm for hidden layer
+4. try GRU/ LSTM
+5. Run a run with all default (for benchmark)
 
+[SUPER IDEAL]
+1. Plot gradient norm distribution over iterations/ layer
+2. Smart/ auto hyper-parameter tunning
 
 Point to Note:
 1. tf version = 1.5.0
@@ -93,6 +99,10 @@ Reference
     https://www.zhihu.com/question/52200883
 - different weight init method with tensorflow implementation and math proof
     https://medium.com/@prateekvishnu/xavier-and-he-normal-he-et-al-initialization-8e3d7a087528
+- RNN-LSTM循环神经网络-03Tensorflow进阶实现 (dropout, batch norm, multicell)
+    http://lawlite.me/2017/06/21/RNN-LSTM%E5%BE%AA%E7%8E%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C-03Tensorflow%E8%BF%9B%E9%98%B6%E5%AE%9E%E7%8E%B0/
+- Medium: working with multilayer BasicRNNCell
+    https://medium.com/@d.vitonyte/dynamic-multi-cell-rnn-with-tensorflow-b3627bcd2f47
 
 """
 import numpy as np
@@ -476,12 +486,14 @@ def get_accuracy(y, preds):
 def get_metrics_plot(train_cost_list, test_cost_list, train_acc_list, test_acc_list):
     """
     plot a curve for loss evolution and a plot for accuracy evolution (for both training set and test set)
+    (2, 1) plots are displayed after the function is called
+    the first one shows loss/ cost curve, the second shows accuracy curve
     
     input:
-        train_cost_list -- 
-        test_cost_list -- 
-        train_acc_list --
-        test_acc_list --
+        train_cost_list -- list, evolution of cost for training set
+        test_cost_list -- list, evolution of cost for test set
+        train_acc_list --list, evolution of accuracy for training set
+        test_acc_list -- list, evolution of accuracy for test set
         
     output:
         None 

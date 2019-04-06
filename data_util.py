@@ -4,7 +4,7 @@
 Created on Sat Apr  6 11:56:03 2019
 
 Functions:
-    1. Reading in data and transform into matrix representation
+    1. Reading in data and transform into matrix representation, with function to flip data upside down
     2. Partition data into training set and test set
     3. Shuffle the data
     4. Get randomized minibatches from training data
@@ -65,7 +65,7 @@ def str_2_list(data_list):
         ret_list.append(tmp_ret_list)
     return ret_list
 
-def dict_2_nparr(data_dict):
+def dict_2_nparr(data_dict, is_flip = False):
     """
     convert data_dict from txt_2_dict to input data and label data x, y. 
     in the middle, a array and b array are concatenated and go through proper transform for desired shape
@@ -90,6 +90,11 @@ def dict_2_nparr(data_dict):
     x = np.array(ab_arr).reshape([m, input_dim, time_steps])
     # convert from shape (x, y, z) to shape (x, z, y)
     x = np.transpose(x, (0, 2, 1))
+    # flip x, y if specified
+    if is_flip:
+        x = np.flip(x, 1)
+        y = np.flip(y, 1)
+        print('x and y are flipped upsided down')
     print('x shape = {}'.format(x.shape))
     print('y shape = {}'.format(y.shape))
     return x, y 

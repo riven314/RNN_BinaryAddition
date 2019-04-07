@@ -13,7 +13,7 @@ from metrics_util import *
 
 def macro_run(input_cache):
     """
-    wrap_train caller. Input is wrapped into dictionary form. 
+    wrap_train() caller. Input is wrapped into dictionary form. 
     The function display training result. 
     
     input:
@@ -22,6 +22,7 @@ def macro_run(input_cache):
     output:
         None
     """
+    filename = input_cache['filename']
     batch_size = input_cache['batch_size']
     n_mb = input_cache['n_mb']
     num4test = input_cache['num4test']
@@ -33,21 +34,23 @@ def macro_run(input_cache):
     lr = input_cache['lr']
     opt_method = input_cache['opt_method']
     is_print_metrics = input_cache['is_print_metrics']
+    shuff_seed = input_cache['shuff_seed']
     
-    wrap_train(batch_size = batch_size, n_mb = n_mb, n_epoch = n_epoch, is_flip = is_flip, num4test = num4test,
+    wrap_train(filename = filename, batch_size = batch_size, n_mb = n_mb, n_epoch = n_epoch, is_flip = is_flip, num4test = num4test,
                hidden_dims = hidden_dims, hidden_activation = hidden_activation, init_method = init_method,
-               lr = lr, opt_method = opt_method, is_print_metrics = is_print_metrics)
+               lr = lr, opt_method = opt_method, is_print_metrics = is_print_metrics, shuff_seed = shuff_seed)
     return None
 
-def wrap_train(batch_size, n_mb, n_epoch, is_flip, num4test,
+def wrap_train(filename, batch_size, n_mb, n_epoch, is_flip, num4test,
                hidden_dims, hidden_activation, init_method, 
-               lr, opt_method, is_print_metrics = False):
+               lr, opt_method, is_print_metrics = False, shuff_seed = None):
     """
     wrap up data_util, model_util, metrics_util. The function is controlled by hyper-parameters
     num4train = n_mb * batch_size, it is constrained to start index at 0
     FILENAME default to be 'data/data.txt'
     
     input:
+        filename -- str, data path
         batch_size -- int, minibatch size
         n_mb -- int, number of minibatch training for each epoch
         is_flip -- boolean, flip x, y upside down
@@ -60,9 +63,12 @@ def wrap_train(batch_size, n_mb, n_epoch, is_flip, num4test,
         lr -- float, learning rate
         opt_method -- str, name of optimiser, e.g adam/ rmsprop/ nesterov_momentum/ momentum
         is_print_metrics --boolean,  whether to print metrics over iterations
+        suff_seed -- int, better greater than 100. Perform shuffling with random seed = shuff_seed right after x, y are transform into model input. 
+        
+    output:
+        None
     """
     # Set up other hyper-parameters
-    FILENAME = 'data/data.txt'
     num4train = batch_size * n_mb
     
     # Set up training 
@@ -82,11 +88,16 @@ def wrap_train(batch_size, n_mb, n_epoch, is_flip, num4test,
     test_cost = compute_cost(test_h, test_Y)
 
     # Load in data
-    data_dict = txt_2_dict(FILENAME)
+    data_dict = txt_2_dict(filename)
     x, y = dict_2_nparr(data_dict, is_flip = is_flip)
     train_x, train_y, test_x, test_y = partition_data(x, y, 
                                                       train_idx = 0, num4train = num4train, 
                                                       test_idx = 4000, num4test = num4test)
+    
+    # perform shuffling after data loading, it is used to change test set
+    if shuff_seed is not None:
+        train_x, train_y = shuffle(train_x, train_y, rand_seed = shuff_seed)
+    
     # start training
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
@@ -127,15 +138,17 @@ def wrap_train(batch_size, n_mb, n_epoch, is_flip, num4test,
 
 if __name__ == '__main__':
     # For testing
-    hyperparam_cache = {'batch_size': 64,
-                        'n_mb': 10,
-                        'num4test': 1000,
-                        'n_epoch': 20,
-                        'is_flip': True,
-                        'hidden_dims': [4],
-                        'hidden_activation': 'tanh',
-                        'init_method': 'xavier',
-                        'lr': 0.01, 
-                        'opt_method': 'adam',
-                        'is_print_metrics': True}
+    hyperparam_cache = {'filename': 'data/data.txt',
+                                    'batch_size': 64,
+                                    'n_mb': 10,
+                                    'num4test': 1000,
+                                    'n_epoch': 20,
+                                    'is_flip': True,
+                                    'hidden_dims': [4],
+                                    'hidden_activation': 'tanh',
+                                    'init_method': 'xavier',
+                                    'lr': 0.01, 
+                                    'opt_method': 'adam',
+                                    'is_print_metrics': True,
+                                    'shuff_rand': None}
     macro_run(hyperparam_cache)

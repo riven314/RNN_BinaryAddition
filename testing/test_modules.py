@@ -3,6 +3,9 @@
 """
 Created on Sat Apr  6 12:09:33 2019
 
+Functions:
+    1. testing all util modules
+
 @author: alex Lau
 """
 from data_util import *

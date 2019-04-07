@@ -7,7 +7,7 @@ Functions:
     1. get prediction from network output
     2. get accuracy rate from prediction vectors (partial credit is given for inccorrect label)
     3. plot the metrics (accuracy rate and loss against epoches)
-
+    
 @author: Alex Lau
 """
 import matplotlib.pyplot as plt

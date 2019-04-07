@@ -150,6 +150,7 @@ def shuffle(x, y, rand_seed = 1):
 def get_minibatches(x, y, it, bs_size):
     """
     get a minibatch of size bs_size from the data set x and y. Take care of end case where minibatch may have size less than bs_size
+    ** make sure the sample size for training is divisible by bs_size, the function cant take care of the last minibatch with sample size less than bs_size
     
     input:
         x -- after shuffle np.array input data of shape (m, time_steps, input_dim)

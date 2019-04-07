@@ -9,6 +9,7 @@ Functions:
     3. backward propagatino for the network (diff optimisation method)
     4. create RNN blocks and do timestep feeding (diff RNN types: Basic RNN)
     5. compute cost for the network
+    6. (include GRU)
 
 @author: Alex Lau
 """

@@ -120,6 +120,57 @@ def create_BasicRNN(hidden_dim, activation = 'sigmoid'):
     else:
         #print('else')
         return None
+
+def create_GRU(hidden_dim, activation = 'sigmoid'):
+    """
+    create GRU object with specified activation function. 
+    If hidden_dim has length 1, single layer RNN is created
+    If hidden_dim is a list with more than 1 values, mulilayers RNN is creates
+    use the same specified activation functions across the defined hidden layers
+    
+    input:
+        hidden_dim -- list, dimension of the last hidden layer
+        activation -- activation function used in the hidden layers i.e sigmoid/ relu/ elu/ leaky_relu/ tanh
+        
+    output:
+        rnn_cell -- GRU cell
+    """
+    n_layers = len(hidden_dim)
+    
+    # decide activation function
+    if activation == 'sigmoid':
+        activation_f = tf.nn.sigmoid
+    elif activation == 'relu':
+        activation_f = tf.nn.relu
+    elif activation == 'leaky_relu':
+        activation_f = tf.nn.leaky_relu
+    elif activation == 'elu':
+        activation_f = tf.nn.elu
+    elif activation == 'tanh':
+        activation_f = tf.nn.tanh
+    
+    # check if hidden_dim is a list
+    if not isinstance(hidden_dim, list):
+        print('Please input hidden_dim as a list')
+        return None
+    
+    # create basic RNN object with 1 hidden layer only
+    
+    if n_layers == 1:
+        #print('n_layers = 1')
+        rnn_cell = tf.nn.rnn_cell.GRUCell(num_units = hidden_dim[0], activation= activation_f)
+        return rnn_cell
+    
+    # stack layers if there are multi-layers
+    elif n_layers > 1:
+        #print('n_layers > 1')
+        cell_list = [tf.nn.rnn_cell.GRUCell(n_hidden, activation = activation_f) for n_hidden in hidden_dim]
+        rnn_cells = tf.nn.rnn_cell.MultiRNNCell(cells = cell_list)
+        return rnn_cells
+    
+    else:
+        #print('else')
+        return None
     
 
 def forward_timestep(X, rnn_cell, time_steps = 8, batch_size = 1):

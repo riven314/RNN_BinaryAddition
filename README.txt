@@ -14,20 +14,21 @@ model_util.py: utility functions for handling tf model setup (details documented
 metrics_util.py: utility functions for handling metrics reporting
 macro_util.py: consolidate the above utility functions into a macro function
 hyperparameters_analysis.ipynb: test performance with different hyper-parameters by macro_util.py
-finalmodel_robust.ipynb: use the final model found in hyperparameters_analysis.ipynb for full run and test for robustness
+finalmodel_robust.ipynb: use the finalsed model found in hyperparameters_analysis.ipynb for full run and test for robustness
 
 CHOICE OF HYPERPARAMETER
 - minibatch with shuffling is used 
 - learning rate = 0.01
 - optimiser = adam
-- basic RNN with hidden layers [4, 4, 4]
+- using GRU unit
+- 3 hidden layers with 3 hidden nerons each (i.e [4, 4, 4])
 - tanh activation function is used in hidden layers
 - data x, y are flipped upside down (e.g [0,1,0,0,0,0,0,0] >> [0,0,0,0,0,0,1,0]) 
 ** datailed explanation on the choice of hyper-parameters are documented on hyperparameters_analysis.ipynb
+** see finalmodel_robust.ipynb for the configuration of the final model
 
 TO RUN THE SCRIPT WITH OTHER TEST CASES
 Use model_util.py for main run. See hyperparameters_analysis.ipynb, finalmodel_robust.ipynb for example of how to use it
-Please edit the data path in wrap_train() from macro_util.py
 
 REFERENCE
 I make reference to the following materials when writing the code
